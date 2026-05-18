@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>IT Services Intelligence | Sanskar Jain</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── RESET ──────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;min-height:100%;font-size:13px}
+body{
+  height:100%;
+  width:100%;
+  background:#080c14;
+  color:#dce3ee;
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  overflow:hidden;
+  /* Safari fix: explicit width prevents body from collapsing */
+  -webkit-text-size-adjust:100%;
+}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0d1220}
+::-webkit-scrollbar-thumb{background:#1e2d45;border-radius:2px}
+
+/* ── DESIGN TOKENS ───────────────────────────────────────────────── */
+:root{
+  --bg:#080c14;--surface:#0d1220;--card:#111927;--card2:#141e2e;
+  --border:#1a2740;--border2:#253554;
+  --accent:#38bdf8;--gold:#f59e0b;--purple:#a78bfa;
+  --green:#10b981;--red:#f43f5e;--orange:#fb923c;
+  --text:#dce3ee;--sub:#7e8fa8;--muted:#3d5070;
+}
+
+/* ── ROOT SHELL ──────────────────────────────────────────────────── */
+/*
+  ARCHITECTURE:
+  .shell  (column flex, full viewport)
+    ├─ .topbar     (fixed 54px height)
+    ├─ .body-row   (flex:1, row, remaining height)
+    │    ├─ .sidebar   (fixed 82px width)
+    │    └─ .main-col  (flex:1, column)
+    │         ├─ .filterbar  (fixed 44px height)
+    │         └─ .content    (flex:1, scrollable)
+    └─ .footer     (fixed 40px height)
+
+  KEY RULES that prevent blank-region bugs:
+  - Every flex:1 child needs min-height:0 AND min-width:0
+  - overflow:hidden only on the scroll-axis container (.content gets overflow-y:auto)
+  - No nested height:100vh
+  - Panels must NOT have overflow:hidden (clips canvas)
+  - Pages use display:none / display:block — no height impact when hidden
+*/
+.shell{
+  display:-webkit-flex;
+  display:flex;
+  -webkit-flex-direction:column;
+  flex-direction:column;
+  height:100vh;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+}
+
+/* ── TOPBAR ──────────────────────────────────────────────────────── */
+.topbar{
+  display:flex;
+  align-items:center;
+  height:54px;           /* fixed — never flex */
+  flex-shrink:0;
+  width:100%;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding-right:20px;
+  gap:0;
+}
+.topbar-brand{
+  width:82px;height:54px;flex-shrink:0;
+  background:linear-gradient(145deg,#0e1f3d,#1a3a6e,#0e2a5a);
+  border-right:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+}
+.topbar-brand svg{width:28px;height:28px}
+.topbar-center{
+  flex:1;min-width:0;   /* min-width:0 critical — lets it shrink */
+  padding:0 20px;
+  overflow:hidden;
+}
+.topbar-title{
+  font-size:13.5px;font-weight:700;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topbar-sub{
+  font-size:10px;color:var(--sub);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topbar-right{display:flex;align-items:center;gap:16px;flex-shrink:0}
+.tb-badge{
+  background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
+  color:var(--accent);padding:4px 12px;border-radius:4px;
+  font-size:10px;font-weight:700;letter-spacing:.08em;white-space:nowrap;
+}
+.tb-clock{text-align:right;flex-shrink:0}
+.tb-clock-time{font-size:13px;font-weight:600;color:var(--text);letter-spacing:.04em}
+.tb-clock-date{font-size:9.5px;color:var(--sub);margin-top:1px}
+.tb-divider{width:1px;height:28px;background:var(--border);flex-shrink:0}
+.tb-analyst{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-avatar{
+  width:28px;height:28px;border-radius:50%;
+  background:linear-gradient(135deg,#1d4ed8,#38bdf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.tb-analyst-name{font-size:11px;font-weight:600;color:var(--text)}
+.tb-analyst-role{font-size:9px;color:var(--sub);margin-top:1px}
+
+/* ── BODY ROW ────────────────────────────────────────────────────── */
+.body-row{
+  display:-webkit-flex;
+  display:flex;
+  -webkit-flex-direction:row;
+  flex-direction:row;
+  -webkit-flex:1 1 0%;
+  flex:1 1 0%;
+  min-height:0;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────── */
+.sidebar{
+  display:flex;flex-direction:column;align-items:center;
+  width:82px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  padding:8px 0;
+  overflow:hidden;       /* sidebar never scrolls */
+}
+.nav-group{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
+.ni{
+  width:66px;display:flex;flex-direction:column;align-items:center;
+  gap:5px;padding:10px 4px;cursor:pointer;border-radius:8px;
+  margin:0 auto;transition:all .18s;position:relative;
+  border:none;background:transparent;
+}
+.ni-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:transparent;border:1px solid transparent;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .18s;
+}
+.ni svg{
+  width:15px;height:15px;stroke:var(--muted);fill:none;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:stroke .18s;
+}
+.ni span{font-size:8px;color:var(--muted);text-align:center;line-height:1.3;letter-spacing:.03em;font-weight:500;transition:color .18s}
+.ni:hover .ni-icon{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.15)}
+.ni:hover svg{stroke:var(--sub)}
+.ni:hover span{color:var(--sub)}
+.ni.active .ni-icon{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.25)}
+.ni.active svg{stroke:var(--accent)}
+.ni.active span{color:var(--accent);font-weight:700}
+.ni.active::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:24px;background:var(--accent);border-radius:0 3px 3px 0;
+}
+.nav-pip{width:4px;height:4px;border-radius:50%;background:var(--muted);margin:4px auto}
+
+/* ── MAIN COLUMN ─────────────────────────────────────────────────── */
+.main-col{
+  display:-webkit-flex;
+  display:flex;
+  -webkit-flex-direction:column;
+  flex-direction:column;
+  -webkit-flex:1 1 0%;
+  flex:1 1 0%;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+  width:auto
+}
+
+/* ── FILTER BAR ──────────────────────────────────────────────────── */
+.filterbar{
+  display:flex;align-items:center;
+  height:44px;          /* fixed — never flex */
+  flex-shrink:0;
+  width:100%;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 16px;gap:12px;
+  overflow:hidden;       /* no wrap — single line only */
+}
+.fb-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;font-weight:600;flex-shrink:0}
+.chips{display:flex;gap:4px;flex-shrink:0}
+.chip{
+  padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;
+  border:1px solid var(--border);color:var(--sub);background:transparent;
+  transition:all .15s;font-weight:500;user-select:none;letter-spacing:.01em;white-space:nowrap;
+}
+.chip:hover{border-color:var(--border2);color:var(--text);background:rgba(255,255,255,.03)}
+.chip.ca{font-weight:700}
+.chip[data-co="all"].ca{background:rgba(56,189,248,.15);border-color:rgba(56,189,248,.4);color:var(--accent)}
+.chip[data-co="TCS"].ca{background:rgba(56,189,248,.15);border-color:rgba(56,189,248,.4);color:#38bdf8}
+.chip[data-co="Infosys"].ca{background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa}
+.chip[data-co="Wipro"].ca{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.4);color:#f59e0b}
+.chip[data-co="HCL"].ca{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4);color:#10b981}
+.chip[data-co="Accenture"].ca{background:rgba(244,63,94,.15);border-color:rgba(244,63,94,.4);color:#f43f5e}
+.chip[data-fy].ca{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.3);color:var(--accent)}
+.fb-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.fb-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.fb-live{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--sub);white-space:nowrap}
+.fb-live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── CONTENT SCROLL AREA ─────────────────────────────────────────── */
+.content{
+  -webkit-flex:1 1 0%;
+  flex:1 1 0%;
+  min-height:0;
+  min-width:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:16px 18px 12px;
+  background:var(--bg);
+  width:100%;
+}
+
+/* ── PAGES ───────────────────────────────────────────────────────── */
+.page{display:none}
+.page.active{display:block}   /* block, not flex — avoids height weirdness */
+
+/* ── PAGE HEADER ─────────────────────────────────────────────────── */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.ph-left{}
+.ph-title{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.ph-sub{font-size:10.5px;color:var(--sub);margin-top:3px}
+.ph-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ph-tag{font-size:9px;color:var(--sub);background:var(--card);border:1px solid var(--border);padding:3px 9px;border-radius:4px;letter-spacing:.04em;font-weight:500;white-space:nowrap}
+.ph-tag.fresh{color:var(--green);border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.06)}
+
+/* ── KPI ROW ─────────────────────────────────────────────────────── */
+/* Use minmax so cards never overflow on narrow screens */
+.krow{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+  width:100%;
+}
+.kcard{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:14px 16px 12px;
+  position:relative;transition:all .2s;cursor:default;
+  /* NO overflow:hidden — would clip ::after pseudo */
+}
+.kcard:hover{border-color:var(--border2);background:var(--card2)}
+.kcard::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  border-radius:9px 9px 0 0;pointer-events:none;
+}
+.ka::after{background:linear-gradient(90deg,#0ea5e9,#38bdf8)}
+.kgo::after{background:linear-gradient(90deg,#d97706,#f59e0b)}
+.kgr::after{background:linear-gradient(90deg,#059669,#10b981)}
+.kr::after{background:linear-gradient(90deg,#e11d48,#f43f5e)}
+.kp::after{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
+.kor::after{background:linear-gradient(90deg,#ea580c,#fb923c)}
+.kl{font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px;font-weight:600}
+.kv{font-size:22px;font-weight:300;color:var(--text);line-height:1;letter-spacing:-.03em}
+.kv sup{font-size:12px;font-weight:400;color:var(--sub);letter-spacing:0}
+.kd{font-size:9.5px;margin-top:6px;display:flex;align-items:center;gap:4px;font-weight:500}
+.kd.dp{color:var(--green)}.kd.dn{color:var(--red)}.kd.dne{color:var(--muted)}
+
+/* ── GRID LAYOUTS ────────────────────────────────────────────────── */
+/* All grids use minmax(0,1fr) — prevents grid blowout */
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.g65{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
+.g60{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;margin-bottom:12px}
+.gfull{margin-bottom:12px}
+
+/* ── PANEL ───────────────────────────────────────────────────────── */
+/*
+  CRITICAL: panels must NOT have overflow:hidden.
+  Chart.js canvases need to be measurable — overflow:hidden breaks
+  ResponsiveObserver and causes charts to render at 0x0.
+*/
+.panel{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:16px;
+  transition:border-color .2s;
+  min-width:0;          /* allows shrink inside grid cell */
+}
+.panel:hover{border-color:var(--border2)}
+.panel-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid var(--border);gap:10px;
+}
+.panel-title-group{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ptitle{
+  font-size:11px;font-weight:600;color:var(--text);
+  letter-spacing:-.01em;line-height:1.3;
+  /* No ALL CAPS — sentence case like Bloomberg/Tableau */
+}
+.psubtitle{
+  font-size:9px;color:var(--muted);letter-spacing:.02em;font-weight:400;
+  display:flex;align-items:center;gap:5px;
+}
+.psubtitle-period{
+  font-size:8.5px;color:var(--sub);background:rgba(255,255,255,.04);
+  padding:1px 6px;border-radius:3px;border:1px solid var(--border);
+  font-weight:500;letter-spacing:.03em;white-space:nowrap;
+}
+.psubtitle-note{
+  font-size:8.5px;color:var(--gold);font-style:italic;
+  /* Used for "Available data: FY2023–FY2025E" type notices */
+}
+.pbadge{
+  font-size:8.5px;background:rgba(56,189,248,.08);color:var(--accent);
+  padding:2px 8px;border-radius:4px;font-weight:600;letter-spacing:.03em;
+  border:1px solid rgba(56,189,248,.15);white-space:nowrap;flex-shrink:0;
+  margin-top:2px;
+}
+.pbadge.gold{background:rgba(245,158,11,.08);color:var(--gold);border-color:rgba(245,158,11,.2)}
+.pbadge.green{background:rgba(16,185,129,.08);color:var(--green);border-color:rgba(16,185,129,.2)}
+.pbadge.red{background:rgba(244,63,94,.08);color:var(--red);border-color:rgba(244,63,94,.2)}
+/* ── FILTER SCOPE BADGE VARIANTS ───────────────────────────────────────── */
+.pbadge.dynamic{background:rgba(56,189,248,.1);color:#38bdf8;border-color:rgba(56,189,248,.3)}
+.pbadge.snapshot{background:rgba(100,116,139,.12);color:#94a3b8;border-color:rgba(100,116,139,.3)}
+.pbadge.forecast{background:rgba(245,158,11,.1);color:#f59e0b;border-color:rgba(245,158,11,.3)}
+.pbadge.last8q{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.3)}
+.pbadge.avail{background:rgba(245,158,11,.08);color:#f59e0b;border-color:rgba(245,158,11,.25);font-style:italic}
+
+/* ── SUBTITLE READABILITY UPGRADE ──────────────────────────────────────── */
+.psubtitle{
+  font-size:9.5px;color:var(--sub);letter-spacing:.015em;font-weight:400;
+  display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;
+}
+.psubtitle-period{
+  font-size:8.5px;color:var(--sub);background:rgba(255,255,255,.05);
+  padding:1px 7px;border-radius:3px;border:1px solid var(--border2);
+  font-weight:600;letter-spacing:.04em;white-space:nowrap;
+}
+.psubtitle-sep{color:var(--muted);font-size:9px}
+.psubtitle-note{
+  font-size:8.5px;color:var(--gold);font-weight:500;
+  background:rgba(245,158,11,.08);padding:1px 6px;
+  border-radius:3px;border:1px solid rgba(245,158,11,.2);
+}
+.psubtitle-label{font-size:9px;color:var(--sub);font-weight:400}
+
+/* ── FORECAST PAGE — VISUAL DIFFERENTIATION ────────────────────────────── */
+#pg4 .panel{border-color:rgba(245,158,11,.15)}
+#pg4 .panel:hover{border-color:rgba(245,158,11,.35)}
+#pg4 .panel-header{border-bottom-color:rgba(245,158,11,.15)}
+#pg4 .psubtitle-period{
+  border-color:rgba(245,158,11,.3);
+  color:var(--gold);
+  background:rgba(245,158,11,.06);
+}
+
+/* ── CHART WRAPPER ───────────────────────────────────────────────── */
+/*
+  .cw wraps each canvas. position:relative is required by Chart.js
+  for its internal resize observer. The explicit height on each
+  .cw div (set inline) is how Chart.js knows the container size.
+*/
+.cw{position:relative;width:100%}
+
+/* ── LEGEND ──────────────────────────────────────────────────────── */
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--sub)}
+.ld{width:10px;height:3px;border-radius:2px;flex-shrink:0}
+
+/* ── INSIGHT CARDS ───────────────────────────────────────────────── */
+.istack{display:flex;flex-direction:column;gap:7px}
+.ins{
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-left:3px solid var(--accent);border-radius:0 7px 7px 0;
+  padding:10px 13px;font-size:10px;color:var(--sub);line-height:1.7;
+}
+.ins b{color:var(--text);font-weight:600}
+.ins.g{border-left-color:var(--green)}.ins.p{border-left-color:var(--purple)}
+.ins.y{border-left-color:var(--gold)}.ins.r{border-left-color:var(--red)}
+.ins.or{border-left-color:var(--orange)}
+
+/* ── HORIZONTAL BAR ──────────────────────────────────────────────── */
+.hbl{display:flex;flex-direction:column;gap:10px}
+.hbi{}
+.hbh{display:flex;justify-content:space-between;margin-bottom:5px;font-size:10.5px}
+.hbn{color:var(--text);font-weight:500}.hbv{color:var(--text);font-weight:700}
+.hbt{background:rgba(255,255,255,.04);border-radius:3px;height:6px;overflow:hidden}
+.hbf{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+/* ── TABLE ───────────────────────────────────────────────────────── */
+.dt{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed}
+.dt thead tr{background:var(--surface)}
+.dt th{
+  color:var(--sub);font-weight:700;text-align:left;
+  padding:9px 10px;border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:.07em;font-size:9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dt td{
+  padding:9px 10px;border-bottom:1px solid rgba(26,39,64,.7);
+  color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dt td:first-child{color:var(--text);font-weight:600}
+.dt tr:last-child td{border-bottom:none}
+.dt tbody tr:hover td{background:rgba(56,189,248,.03)}
+.bpx{padding:2px 8px;border-radius:4px;font-size:9.5px;font-weight:700}
+.bp{background:rgba(16,185,129,.13);color:#10b981}
+.bn{background:rgba(244,63,94,.13);color:#f43f5e}
+.bw{background:rgba(245,158,11,.13);color:#f59e0b}
+.bne{background:rgba(100,116,139,.13);color:#64748b}
+
+/* ── DONUT LEGEND ────────────────────────────────────────────────── */
+.dleg{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.dr{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;padding:3px 0;border-bottom:1px solid rgba(26,39,64,.5)}
+.dr:last-child{border-bottom:none}
+.dl{display:flex;align-items:center;gap:6px;color:var(--sub)}
+.dsw{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.dpct{color:var(--text);font-weight:700}
+
+/* ── SCENARIO ────────────────────────────────────────────────────── */
+.scrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.sc{border-radius:9px;padding:14px;border:1px solid}
+.sc.bear{background:rgba(244,63,94,.06);border-color:rgba(244,63,94,.25)}
+.sc.base{background:rgba(56,189,248,.06);border-color:rgba(56,189,248,.25)}
+.sc.bull{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.25)}
+.sc-icon{font-size:18px;margin-bottom:8px}
+.scl{font-size:8.5px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:6px}
+.bear .scl{color:var(--red)}.base .scl{color:var(--accent)}.bull .scl{color:var(--green)}
+.scv{font-size:26px;font-weight:300;margin-bottom:6px;letter-spacing:-.02em}
+.bear .scv{color:var(--red)}.base .scv{color:var(--accent)}.bull .scv{color:var(--green)}
+.scs{font-size:9.5px;color:var(--muted);line-height:1.6}
+
+/* ── FOOTER ──────────────────────────────────────────────────────── */
+.footer{
+  display:flex;align-items:center;justify-content:space-between;
+  height:40px;          /* fixed — never flex */
+  flex-shrink:0;
+  width:100%;
+  background:var(--surface);border-top:2px solid var(--border);
+  padding:0 20px;gap:16px;
+}
+.footer-left{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.footer-author-wrap{display:flex;align-items:center;gap:8px}
+.footer-avatar{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#1d4ed8,#38bdf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.footer-author{font-size:11.5px;font-weight:700;color:var(--text);letter-spacing:.01em}
+.footer-role{font-size:9px;color:var(--sub);margin-top:.5px}
+.footer-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.footer-center{font-size:9.5px;color:var(--muted);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.footer-right{display:flex;align-items:center;gap:10px;font-size:9px;color:var(--muted);flex-shrink:0}
+.footer-dot{width:4px;height:4px;border-radius:50%;background:var(--muted)}
+
+/* ── NAV ACTIVE SIDEBAR ──────────────────────────────────────────── */
+.ni.active::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:24px;background:var(--accent);border-radius:0 3px 3px 0;
+}
+.ni.active{background:rgba(56,189,248,.1)}
+
+/* ── KPI CARD HEIGHT CONSISTENCY ────────────────────────────────────── */
+.kcard{min-height:88px}
+.kv{transition:all .25s ease}
+.kd{transition:all .2s ease}
+
+/* ── LIVE / HISTORICAL BADGE VARIANTS ──────────────────────────────── */
+.pbadge.live{background:rgba(16,185,129,.1);color:#10b981;border-color:rgba(16,185,129,.3)}
+.pbadge.historical{background:rgba(100,116,139,.12);color:#94a3b8;border-color:rgba(100,116,139,.3)}
+
+/* ── PSUBTITLE READABILITY ──────────────────────────────────────────── */
+.psubtitle{font-size:9.5px;color:var(--sub);opacity:1}
+.psubtitle-label{color:var(--sub);opacity:.9}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══ TOPBAR ══════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="24" width="8" height="12" rx="2" fill="#38bdf8" opacity=".9"/>
+      <rect x="16" y="16" width="8" height="20" rx="2" fill="#a78bfa" opacity=".9"/>
+      <rect x="28" y="8" width="8" height="28" rx="2" fill="#10b981" opacity=".9"/>
+      <polyline points="8,22 20,14 32,6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="topbar-center">
+    <div class="topbar-title">IT Services Industry — Revenue &amp; Workforce Intelligence</div>
+    <div class="topbar-sub">Comparative analysis · TCS &nbsp;·&nbsp; Infosys &nbsp;·&nbsp; Wipro &nbsp;·&nbsp; HCL Technologies &nbsp;·&nbsp; Accenture &nbsp;·&nbsp; FY2020–FY2025E</div>
+  </div>
+  <div class="topbar-right">
+    <div class="tb-badge">LIVE DASHBOARD</div>
+    <div class="tb-divider"></div>
+    <div class="tb-clock">
+      <div class="tb-clock-time" id="clk-time">—</div>
+      <div class="tb-clock-date" id="clk-date">—</div>
+    </div>
+    <div class="tb-divider"></div>
+    <div class="tb-analyst">
+      <div class="tb-avatar">SJ</div>
+      <div>
+        <div class="tb-analyst-name">Sanskar Jain</div>
+        <div class="tb-analyst-role">Data Analyst</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="body-row">
+
+<!-- ══ SIDEBAR ═════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="nav-group">
+    <button class="ni active" onclick="showPage(0,this)" title="Executive Summary">
+      <div class="ni-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </div>
+      <span>Overview</span>
+    </button>
+    <button class="ni" onclick="showPage(1,this)" title="Company Comparison">
+      <div class="ni-icon">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <span>Comparison</span>
+    </button>
+    <div class="nav-pip"></div>
+    <button class="ni" onclick="showPage(2,this)" title="Workforce Analytics">
+      <div class="ni-icon">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <span>Workforce</span>
+    </button>
+    <button class="ni" onclick="showPage(3,this)" title="Cloud & AI">
+      <div class="ni-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <span>Cloud & AI</span>
+    </button>
+    <div class="nav-pip"></div>
+    <button class="ni" onclick="showPage(4,this)" title="Forecast">
+      <div class="ni-icon">
+        <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
+      <span>Forecast</span>
+    </button>
+  </div>
+</nav>
+
+
+<div class="main-col">
+
+<!-- ══ FILTER BAR ══════════════════════════════════════ -->
+<div class="filterbar">
+  <span class="fb-label">Company</span>
+  <div class="chips" id="cchips">
+    <div class="chip ca" data-co="all"       onclick="setFilter('co','all',this)">All Five</div>
+    <div class="chip"    data-co="TCS"       onclick="setFilter('co','TCS',this)">TCS</div>
+    <div class="chip"    data-co="Infosys"   onclick="setFilter('co','Infosys',this)">Infosys</div>
+    <div class="chip"    data-co="Wipro"     onclick="setFilter('co','Wipro',this)">Wipro</div>
+    <div class="chip"    data-co="HCL"       onclick="setFilter('co','HCL',this)">HCL Tech</div>
+    <div class="chip"    data-co="Accenture" onclick="setFilter('co','Accenture',this)">Accenture</div>
+  </div>
+  <div class="fb-sep"></div>
+  <span class="fb-label">Period</span>
+  <div class="chips" id="fychips">
+    <div class="chip ca" data-fy="all"    onclick="setFilter('fy','all',this)">FY20–25E</div>
+    <div class="chip"    data-fy="3y"     onclick="setFilter('fy','3y',this)">FY23–25E</div>
+    <div class="chip"    data-fy="latest" onclick="setFilter('fy','latest',this)">FY25E</div>
+  </div>
+  <div class="fb-right">
+    <span id="ctx-badge" style="font-size:9.5px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.06em;flex-shrink:0;white-space:nowrap;background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.25)">Comparison Mode: All Companies</span>
+    <div class="fb-sep"></div>
+    <div class="fb-live">
+      <div class="fb-live-dot"></div>
+      <span>FY2025E data as of Q3 earnings</span>
+    </div>
+    <div class="fb-sep"></div>
+    <span style="font-size:9px;color:var(--muted)">USD $M unless noted</span>
+  </div>
+</div>
+
+<!-- ══ CONTENT ══════════════════════════════════════════ -->
+<div class="content">
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 0 — EXECUTIVE SUMMARY
+════════════════════════════════════════════════════ -->
+<div class="page active" id="pg0">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-title">Executive Summary</div>
+      <div class="ph-sub">Consolidated view across 5 peers &nbsp;·&nbsp; Dynamic charts follow period filter &nbsp;·&nbsp; Snapshot charts use latest available data</div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-tag fresh">● Data Current</span>
+      <span class="ph-tag" id="ph-tag-count">5 Companies · 6 Fiscal Years</span>
+    </div>
+  </div>
+
+  <div class="krow" id="kpi0"></div>
+
+  <div class="g65">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p0-rev">Revenue trend</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p0-rev">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $M</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="leg" id="leg0a"></div>
+      <div class="cw" style="height:200px"><canvas id="ch0a"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p0-donut">Revenue distribution</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p0-donut">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Snapshot metric</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="cw" style="height:140px"><canvas id="ch0b"></canvas></div>
+      <div class="dleg" id="dleg0"></div>
+    </div>
+  </div>
+
+  <div class="g65">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p0-ebit">EBIT margin</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p0-ebit">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">% of revenue</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="cw" style="height:170px"><canvas id="ch0c"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Analyst commentary</span>
+  </div>
+  <span class="pbadge snapshot">Key observations</span>
+</div>
+      <div class="istack" id="ins0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 1 — COMPANY COMPARISON
+════════════════════════════════════════════════════ -->
+<div class="page" id="pg1">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-title" id="ph-p1-title">Company Performance Comparison</div>
+      <div class="ph-sub" id="ph-p1-sub">Peer benchmarking across 5 companies &nbsp;·&nbsp; Dynamic charts follow period filter &nbsp;·&nbsp; Geographic and share metrics show latest period end</div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-tag fresh">● Data Current</span>
+      <span class="ph-tag">FY2020–FY2025E</span>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p1-rev">Annual revenue</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p1-rev">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $M</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="cw" style="height:200px"><canvas id="ch1a"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p1-mgn">Net profit margin</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p1-mgn">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Ranked high→low</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="hbl" id="hb1" style="margin-top:4px"></div>
+      <div class="ins" style="margin-top:14px;font-size:9.5px" id="ins1s"></div>
+    </div>
+  </div>
+
+  <div class="gfull panel">
+    <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p1-score">Performance scorecard</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p1-score">FY2024 vs FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">10 key metrics</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+    <div style="overflow-x:auto"><table class="dt"><thead id="sc1h"></thead><tbody id="sc1b"></tbody></table></div>
+  </div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p1-cagr">5-year revenue &amp; profit CAGR</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p1-cagr">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Fixed window</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="cw" style="height:185px"><canvas id="ch1b"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Quarterly revenue</span>
+    <div class="psubtitle"><span class="psubtitle-period">Q1 FY24–Q4 FY25E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $M</span></div>
+  </div>
+  <span class="pbadge last8q">Last 8 quarters</span>
+</div>
+      <div class="cw" style="height:185px"><canvas id="ch1c"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 2 — WORKFORCE
+════════════════════════════════════════════════════ -->
+<div class="page" id="pg2">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-title">Workforce &amp; Attrition Analytics</div>
+      <div class="ph-sub">Headcount, attrition, and productivity metrics update dynamically based on selected filters</div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-tag fresh">● Data Current</span>
+      <span class="ph-tag">FY2020–FY2025E</span>
+    </div>
+  </div>
+
+  <div class="krow" id="kpi2"></div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="hc">Workforce expansion</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-hc">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Employees '000s</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="leg" id="leg2a"></div>
+      <div class="cw" style="height:185px"><canvas id="ch2a"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="pt-p2-att">Attrition rate</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-pt-p2-att">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">LTM % of workforce</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="cw" style="height:200px"><canvas id="ch2b"></canvas></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Revenue per employee</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $K · Productivity</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="hbl" id="hb2" style="margin-top:4px"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Historical workforce insights</span>
+    <div class="psubtitle"><span class="psubtitle-label">Key inflection points · FY2020–FY2025E</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="istack" id="ins2"></div>
+    </div>
+  </div>
+
+  <div class="gfull panel">
+    <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="fresh">Campus hiring</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-fresh">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Fresher intake · '000s</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+    <div class="cw" style="height:170px"><canvas id="ch2c"></canvas></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 3 — CLOUD & AI
+════════════════════════════════════════════════════ -->
+<div class="page" id="pg3">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-title">Cloud &amp; AI Digital Business Analytics</div>
+      <div class="ph-sub">Cloud growth trend follows period filter &nbsp;·&nbsp; Share metrics snapshot at FY2025E &nbsp;·&nbsp; AI data available from FY2023</div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-tag fresh">● Data Current</span>
+      <span class="ph-tag">FY2020–FY2025E</span>
+    </div>
+  </div>
+
+  <div class="krow" id="kpi3"></div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle" id="cloud">Cloud revenue growth</span>
+    <div class="psubtitle"><span class="psubtitle-period" id="psp-cloud">FY2020–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $M</span></div>
+  </div>
+  <span class="pbadge dynamic">Dynamic</span>
+</div>
+      <div class="leg" id="leg3a"></div>
+      <div class="cw" style="height:195px"><canvas id="ch3a"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Cloud revenue share</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">% of total revenue</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="hbl" id="hb3" style="margin-top:6px"></div>
+      <div class="ins" style="margin-top:14px;font-size:9.5px;border-left-color:var(--purple)" id="ins3s"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">AI &amp; digital revenue</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2023–FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">USD $B</span><span class="psubtitle-note">Available from FY2023</span></div>
+  </div>
+  <span class="pbadge last8q">Fixed window</span>
+</div>
+      <div class="cw" style="height:195px"><canvas id="ch3b"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Geographic revenue mix</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">% of total by region</span></div>
+  </div>
+  <span class="pbadge snapshot">Snapshot</span>
+</div>
+      <div class="cw" style="height:195px"><canvas id="ch3c"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 4 — FORECAST
+════════════════════════════════════════════════════ -->
+<div class="page" id="pg4">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-title">Forecasting &amp; Strategic Outlook</div>
+      <div class="ph-sub">Revenue projections through FY2027E, scenario modelling, headcount forecast and analyst consensus summary</div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-tag" style="color:var(--gold);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.06)">⚠ Estimates — Not Guidance</span>
+      <span class="ph-tag">Base Case Model</span>
+    </div>
+  </div>
+
+  <div class="g60">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Headcount forecast</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E–FY2027E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Employees '000s</span></div>
+  </div>
+  <span class="pbadge forecast">Forecast</span>
+</div>
+      <div class="leg" id="leg4a"></div>
+      <div class="cw" style="height:205px"><canvas id="ch4a"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Strategic growth drivers</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025–FY2027</span></div>
+  </div>
+  <span class="pbadge forecast">Forecast</span>
+</div>
+      <div class="istack">
+        <div class="ins g"><b>Cloud Migration:</b> Enterprise cloud adoption globally remains ~35%. All five companies are positioned for multi-year migration contracts — a $50B+ cumulative opportunity through FY2027.</div>
+        <div class="ins p"><b>Gen AI Monetisation:</b> Accenture disclosed $3B+ in AI bookings in FY24. TCS AI.Cloud and Infosys Topaz are ramping. Gen AI could add 2–4% incremental revenue CAGR by FY27 for sector leaders.</div>
+        <div class="ins y"><b>BFSI Recovery:</b> North American BFSI — 20–30% of revenues for all five firms — is projected to recover from H2 FY25, disproportionately benefiting HCL Tech and Wipro given their BFSI concentration.</div>
+        <div class="ins r"><b>Margin Tailwind:</b> Post-FY24 headcount rationalisation improves revenue per employee 4–6% sector-wide — compounding into structural margin improvement through FY26–27.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Revenue growth scenarios</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2026–FY2027E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Bear / Base / Bull</span></div>
+  </div>
+  <span class="pbadge forecast">Forecast</span>
+</div>
+      <div class="scrow" style="margin-top:8px">
+        <div class="sc bear">
+          <div class="sc-icon">↘</div>
+          <div class="scl">Bear</div>
+          <div class="scv">+3–4%</div>
+          <div class="scs">Demand contraction, BFSI slowdown, weak discretionary spend</div>
+        </div>
+        <div class="sc base">
+          <div class="sc-icon">→</div>
+          <div class="scl">Base</div>
+          <div class="scv">+6–8%</div>
+          <div class="scs">Gradual recovery, cloud on track, AI ramp beginning</div>
+        </div>
+        <div class="sc bull">
+          <div class="sc-icon">↗</div>
+          <div class="scl">Bull</div>
+          <div class="scv">+9–12%</div>
+          <div class="scs">AI-led acceleration, BFSI boom, large deal momentum</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Headcount forecast</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E–FY2027E</span><span style="color:var(--muted)">Employees '000s</span></div>
+  </div>
+  <span class="pbadge">Base case</span>
+</div>
+      <div class="cw" style="height:165px"><canvas id="ch4b"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Cloud revenue target</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2027E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">% of total revenue</span></div>
+  </div>
+  <span class="pbadge forecast">Forecast</span>
+</div>
+      <div class="hbl" id="hb4" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">EBIT margin outlook</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2024–FY2027E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Consensus estimates</span></div>
+  </div>
+  <span class="pbadge forecast">Forecast</span>
+</div>
+      <div class="cw" style="height:175px"><canvas id="ch4c"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+  <div class="panel-title-group">
+    <span class="ptitle">Analyst consensus</span>
+    <div class="psubtitle"><span class="psubtitle-period">FY2025E</span><span class="psubtitle-sep">·</span><span class="psubtitle-label">Street estimates</span></div>
+  </div>
+  <span class="pbadge forecast">Snapshot</span>
+</div>
+      <div style="overflow-x:auto"><table class="dt" id="t4"></table></div>
+      <div class="ins" style="margin-top:12px;border-left-color:var(--green);font-size:9.5px" id="ins4s"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main-col -->
+</div><!-- /body-row -->
+
+<!-- ══ FOOTER ═══════════════════════════════════════════ -->
+<div class="footer">
+  <div class="footer-left">
+    <div class="footer-author-wrap">
+      <div class="footer-avatar">SJ</div>
+      <div>
+        <div class="footer-author">Sanskar Jain</div>
+        <div class="footer-role">Data Analyst</div>
+      </div>
+    </div>
+    <div class="footer-sep"></div>
+    <div class="footer-center">IT Services Revenue &amp; Workforce Intelligence &nbsp;·&nbsp; FY2020–FY2025E</div>
+  </div>
+  <div class="footer-right">
+    <span id="ft-cos">5 Companies</span>
+    <div class="footer-dot"></div>
+    <span>6 Fiscal Years</span>
+    <div class="footer-dot"></div>
+    <span>15+ Charts</span>
+    <div class="footer-dot"></div>
+    <span>All figures USD $M</span>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+// ══════════════════════════════════════════════════════
+// LIVE CLOCK
+// ══════════════════════════════════════════════════════
+function updateClock(){
+  const now = new Date();
+  const t = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  const d = now.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('clk-time').textContent = t;
+  document.getElementById('clk-date').textContent = d;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ══════════════════════════════════════════════════════
+// MASTER DATA
+// ══════════════════════════════════════════════════════
+const FY_SHORT = ['FY20','FY21','FY22','FY23','FY24','FY25E'];
+const CO_KEYS  = ['TCS','Infosys','Wipro','HCL','Accenture'];
+
+const DB = {
+  TCS:{
+    color:'#38bdf8',label:'TCS',
+    rev:    [22173,25706,27929,29083,30175,31200],
+    ebit:   [26.8,27.4,26.9,27.1,27.0,27.1],
+    netm:   [18.9,19.0,19.3,19.4,19.4,19.5],
+    profit: [4188,4890,5379,5633,5866,6073],
+    hc:     [448,489,592,615,602,597],
+    att:    [11.0,14.1,17.4,20.1,12.5,11.0],
+    cloud:  [2660,3599,4747,6680,8450,9672],
+    cloudP: [12,14,17,23,28,31],
+    aiRev:  [1554,2313,3630,5817,7544,9360],
+    rpe:    [49.5,52.6,47.2,47.3,50.2,52.3],
+    fresh:  [25,40,110,70,40,35],
+    geo:    {na:53.5,eu:16.5,uk:13.5,ind:5.5,apac:8.0,row:3.0},
+    fcRev:  [30175,31200,33700,36400],
+    fcEbit: [27.0,27.1,27.3,27.5],
+    fcHc:   [602,597,615,632],
+    cagr:   {rev:7.1,profit:7.7},
+    eps25:1.65,rating:'Buy',upside:8.4,cloudTgt:38,
+    qRev:   [7505,7713,7901,8056,7412,7794,7994,8000]
+  },
+  Infosys:{
+    color:'#a78bfa',label:'Infosys',
+    rev:    [12780,14928,18212,18212,19573,21100],
+    ebit:   [21.4,21.7,22.8,22.5,23.0,22.9],
+    netm:   [16.2,16.2,16.6,16.4,16.7,16.7],
+    profit: [2064,2424,3022,2993,3269,3521],
+    hc:     [228,260,314,343,317,330],
+    att:    [21.3,24.0,28.4,24.3,12.9,11.5],
+    cloud:  [1278,2090,3642,4553,5481,6330],
+    cloudP: [10,14,20,25,28,30],
+    aiRev:  [639,1046,2731,3642,4893,6330],
+    rpe:    [56.0,57.5,58.0,53.1,61.7,64.0],
+    fresh:  [18,35,85,50,20,30],
+    geo:    {na:62.5,eu:17.0,uk:7.0,ind:2.5,apac:9.0,row:2.0},
+    fcRev:  [19573,21100,22900,24800],
+    fcEbit: [23.0,22.9,23.2,23.5],
+    fcHc:   [317,330,350,372],
+    cagr:   {rev:10.5,profit:11.3},
+    eps25:0.84,rating:'Buy',upside:12.1,cloudTgt:36,
+    qRev:   [4617,4999,4877,4763,4714,4986,5104,5296]
+  },
+  Wipro:{
+    color:'#f59e0b',label:'Wipro',
+    rev:    [8133,9494,10396,11158,10845,11200],
+    ebit:   [17.8,17.9,18.2,18.4,17.0,17.0],
+    netm:   [13.3,14.4,14.1,14.1,13.2,13.2],
+    profit: [1085,1369,1469,1571,1427,1478],
+    hc:     [198,197,236,259,233,228],
+    att:    [16.0,22.7,23.3,22.7,14.4,12.0],
+    cloud:  [651,949,1456,1897,1952,2128],
+    cloudP: [8,10,14,17,18,19],
+    aiRev:  [244,570,936,1675,1952,2240],
+    rpe:    [41.1,48.1,44.0,43.1,46.5,49.1],
+    fresh:  [10,18,45,30,15,18],
+    geo:    {na:56.0,eu:20.0,uk:10.5,ind:5.0,apac:6.5,row:2.0},
+    fcRev:  [10845,11200,12000,13000],
+    fcEbit: [17.0,17.0,17.5,18.0],
+    fcHc:   [233,228,235,242],
+    cagr:   {rev:6.6,profit:6.4},
+    eps25:0.28,rating:'Hold',upside:4.2,cloudTgt:24,
+    qRev:   [2763,2745,2736,2786,2635,2660,2694,2723]
+  },
+  HCL:{
+    color:'#10b981',label:'HCL Tech',
+    rev:    [9627,10173,11777,13299,14251,15400],
+    ebit:   [17.8,18.0,18.0,19.2,19.2,19.2],
+    netm:   [13.2,14.5,13.7,14.9,14.7,14.7],
+    profit: [1274,1479,1619,1986,2100,2268],
+    hc:     [150,169,203,226,227,235],
+    att:    [19.4,21.0,21.9,23.8,13.2,12.0],
+    cloud:  [867,1119,1649,2261,2708,3080],
+    cloudP: [9,11,14,17,19,20],
+    aiRev:  [289,407,707,1196,1567,2310],
+    rpe:    [64.0,60.2,57.9,58.9,62.6,65.5],
+    fresh:  [8,20,40,30,18,22],
+    geo:    {na:62.5,eu:18.0,uk:10.0,ind:3.2,apac:4.9,row:1.4},
+    fcRev:  [14251,15400,16800,18300],
+    fcEbit: [19.2,19.2,19.5,19.8],
+    fcHc:   [227,235,248,262],
+    cagr:   {rev:9.8,profit:12.2},
+    eps25:0.83,rating:'Buy',upside:11.3,cloudTgt:26,
+    qRev:   [3534,3444,3499,3488,3544,3738,3994,4124]
+  },
+  Accenture:{
+    color:'#f43f5e',label:'Accenture',
+    rev:    [44327,50533,61594,64111,64895,67200],
+    ebit:   [15.1,15.8,15.4,15.5,15.5,15.5],
+    netm:   [11.5,11.7,11.2,11.2,11.2,11.2],
+    profit: [5108,5906,6877,7153,7264,7526],
+    hc:     [506,537,738,733,774,770],
+    att:    [17.0,17.2,20.1,18.5,15.0,13.5],
+    cloud:  [5319,9096,15398,20836,22714,24192],
+    cloudP: [12,18,25,32,35,36],
+    aiRev:  [2217,4043,7391,10258,13628,16128],
+    rpe:    [87.6,94.1,83.5,87.5,83.8,87.3],
+    fresh:  [60,70,150,80,75,60],
+    geo:    {na:45.0,eu:27.5,uk:10.8,ind:0.9,apac:10.0,row:5.8},
+    fcRev:  [64895,67200,72000,77500],
+    fcEbit: [15.5,15.5,15.7,16.0],
+    fcHc:   [774,770,780,795],
+    cagr:   {rev:8.7,profit:8.1},
+    eps25:12.00,rating:'Buy',upside:9.8,cloudTgt:42,
+    qRev:   [16224,16455,16470,16434,16658,16663,16650,17229]
+  }
+};
+
+const Q_LABELS=['Q1FY24','Q2FY24','Q3FY24','Q4FY24','Q1FY25','Q2FY25','Q3FY25','Q4FY25E'];
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+const state={co:'all',fy:'all'};
+function getCos(){return state.co==='all'?CO_KEYS:[state.co]}
+function getIdxs(){
+  if(state.fy==='all')    return[0,1,2,3,4,5];
+  if(state.fy==='3y')     return[3,4,5];
+  if(state.fy==='latest') return[5];
+  return[0,1,2,3,4,5];
+}
+
+// ══════════════════════════════════════════════════════
+// CHART ENGINE
+// ══════════════════════════════════════════════════════
+const _charts={};
+function mkC(id,type,data,opts){
+  if(_charts[id]){try{_charts[id].destroy()}catch(e){}delete _charts[id]}
+  const el=document.getElementById(id);if(!el)return;
+  _charts[id]=new Chart(el,{type,data,options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:400,easing:'easeOutQuart'},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#111927',titleColor:'#dce3ee',bodyColor:'#7e8fa8',
+        borderColor:'#1a2740',borderWidth:1,padding:11,cornerRadius:7,
+        titleFont:{size:11,weight:'700'},bodyFont:{size:10},
+        callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.formattedValue}
+      }
+    },...opts
+  }});
+}
+
+const grid  ={color:'rgba(26,39,64,0.8)',drawBorder:false};
+const ticks ={color:'#3d5070',padding:6,font:{size:9.5}};
+
+function lds(label,data,color,dash=[]){
+  return{label,data,borderColor:color,borderWidth:2.5,borderDash:dash,
+    pointRadius:3.5,pointHoverRadius:6,pointBackgroundColor:color,
+    pointBorderColor:'#080c14',pointBorderWidth:1.5,
+    backgroundColor:color+'12',tension:0.2,fill:false};
+}
+function bds(label,data,color,alpha=1){
+  const h=Math.round(alpha*255).toString(16).padStart(2,'0');
+  return{label,data,backgroundColor:color+h,borderRadius:4,borderSkipped:false,
+    hoverBackgroundColor:color};
+}
+function yax(cb){
+  return{x:{grid,ticks},y:{grid,ticks:{...ticks,callback:cb||(v=>v>=1000?(v/1000).toFixed(0)+'K':v)}}};
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+function hbar(items){
+  return items.map(it=>`
+    <div class="hbi">
+      <div class="hbh"><span class="hbn">${it.label}</span><span class="hbv">${it.val}</span></div>
+      <div class="hbt"><div class="hbf" style="width:${it.pct}%;background:${it.color}"></div></div>
+    </div>`).join('');
+}
+function kcard(cls,label,val,delta,dc){
+  const arr=dc==='dp'?'▲':dc==='dn'?'▼':'';
+  return`<div class="kcard ${cls}">
+    <div class="kl">${label}</div>
+    <div class="kv">${val}</div>
+    <div class="kd ${dc}"><span class="kd-arrow">${arr}</span>${delta}</div>
+  </div>`;
+}
+function mkLeg(elId,cos){
+  document.getElementById(elId).innerHTML=cos.map(k=>
+    `<div class="li"><div class="ld" style="background:${DB[k].color}"></div>${DB[k].label}</div>`).join('');
+}
+function fmt(v){return v>=1000?(v/1000).toFixed(0)+'K':v}
+
+// ══════════════════════════════════════════════════════
+// PAGE 0 — EXECUTIVE SUMMARY
+// ══════════════════════════════════════════════════════
+function p0(){
+  const cos=getCos(),idxs=getIdxs(),fyl=idxs.map(i=>FY_SHORT[i]);
+
+  const _r=calcRevenue(),_p=calcProfit(),_w=calcWorkforce();
+  const _a=calcAttrition(),_e=calcEbitMargin(),_c=calcCloudShare();
+  const _fyL=FY_SHORT[lastIdx()];
+
+  document.getElementById('kpi0').innerHTML=
+    kcard('ka',getKpiLabel('rev'),
+      _r.val>=100000?'$'+(_r.val/1000).toFixed(0)+'<sup>B</sup>':'$'+(_r.val/1000).toFixed(1)+'<sup>B</sup>',
+      Math.abs(_r.yoy).toFixed(1)+'% '+_r.prev,_r.yoy>=0?'dp':'dn')+
+    kcard('kgo',getKpiLabel('profit'),
+      '$'+(_p.val/1000).toFixed(1)+'<sup>B</sup>',
+      Math.abs(_p.yoy).toFixed(1)+'% '+_p.prev,_p.yoy>=0?'dp':'dn')+
+    kcard('kgr',getKpiLabel('hc'),
+      _w.val+'<sup>K</sup>',
+      Math.abs(_w.yoy).toFixed(1)+'% '+_w.prev,_w.yoy>=0?'dp':'dn')+
+    kcard('kr',getKpiLabel('att'),
+      _a.val.toFixed(1)+'<sup>%</sup>',
+      _a.delta>=0?_a.delta.toFixed(1)+'pp better '+_a.prev:Math.abs(_a.delta).toFixed(1)+'pp worse '+_a.prev,
+      _a.delta>=0?'dp':'dn')+
+    kcard('kp',getKpiLabel('ebit'),
+      _e.val.toFixed(1)+'<sup>%</sup>',
+      (_e.delta>=0?'+':'')+_e.delta.toFixed(1)+'pp '+_e.prev,_e.delta>=0?'dp':'dne')+
+    kcard('kor',getKpiLabel('cloud'),
+      _c.val.toFixed(1)+'<sup>%</sup>',
+      (_c.delta>=0?'+':'')+_c.delta.toFixed(1)+'pp '+_c.prev,_c.delta>=0?'dp':'dn');
+
+  mkLeg('leg0a',cos);
+  mkC('ch0a','line',{labels:fyl,datasets:cos.map(k=>lds(DB[k].label,idxs.map(i=>DB[k].rev[i]),DB[k].color))},
+    {scales:yax()});
+
+  // ── Donut / single-company swap ─────────────────────
+  if(isSingle()){
+    // Single mode: replace donut with that company's own FY revenue bars
+    const k=state.co;
+    if(_charts['ch0b']){try{_charts['ch0b'].destroy()}catch(e){}delete _charts['ch0b'];}
+    mkC('ch0b','bar',{
+      labels:idxs.map(i=>FY_SHORT[i]),
+      datasets:[{label:DB[k].label,data:idxs.map(i=>DB[k].rev[i]),
+        backgroundColor:DB[k].color+'44',borderColor:DB[k].color,
+        borderWidth:2,borderRadius:4,borderSkipped:false}]
+    },{scales:{
+      x:{grid:{color:'rgba(26,39,64,0.8)',drawBorder:false},ticks:{color:'#3d5070',padding:4,font:{size:9}}},
+      y:{grid:{color:'rgba(26,39,64,0.8)',drawBorder:false},ticks:{color:'#3d5070',padding:4,font:{size:9},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v}}
+    }});
+    document.getElementById('dleg0').innerHTML=`
+      <div class="dr"><div class="dl">FY25E Revenue</div><div class="dpct">$${(DB[k].rev[lastIdx()]/1000).toFixed(1)}B</div></div>
+      <div class="dr"><div class="dl">EBIT Margin</div><div class="dpct">${DB[k].ebit[lastIdx()].toFixed(1)}%</div></div>
+      <div class="dr"><div class="dl">Net Margin</div><div class="dpct">${DB[k].netm[lastIdx()].toFixed(1)}%</div></div>
+      <div class="dr"><div class="dl">5Y Rev CAGR</div><div class="dpct">${DB[k].cagr.rev.toFixed(1)}%</div></div>
+      <div class="dr"><div class="dl">Cloud Share</div><div class="dpct">${DB[k].cloudP[lastIdx()]}%</div></div>`;
+  } else {
+    // All-companies: show donut
+    const tot=cos.reduce((a,k)=>a+DB[k].rev[lastIdx()],0);
+    if(_charts['ch0b']){try{_charts['ch0b'].destroy()}catch(e){}delete _charts['ch0b'];}
+    mkC('ch0b','doughnut',{
+      labels:cos.map(k=>DB[k].label),
+      datasets:[{data:cos.map(k=>+((DB[k].rev[lastIdx()]/tot)*100).toFixed(1)),
+        backgroundColor:cos.map(k=>DB[k].color),borderColor:'#080c14',borderWidth:2,hoverOffset:5}]
+    },{cutout:'70%',plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#111927',titleColor:'#dce3ee',bodyColor:'#7e8fa8',
+        borderColor:'#1a2740',borderWidth:1,cornerRadius:7,
+        callbacks:{label:c=>` ${c.label}: ${c.parsed.toFixed(1)}%`}}}});
+    const sorted=[...cos].sort((a,b)=>DB[b].rev[lastIdx()]-DB[a].rev[lastIdx()]);
+    document.getElementById('dleg0').innerHTML=sorted.map(k=>`
+      <div class="dr">
+        <div class="dl"><div class="dsw" style="background:${DB[k].color}"></div>${DB[k].label}</div>
+        <div class="dpct">${((DB[k].rev[lastIdx()]/tot)*100).toFixed(1)}%</div>
+      </div>`).join('');
+  }
+
+  mkC('ch0c','line',{labels:fyl,datasets:cos.map(k=>lds(DB[k].label,idxs.map(i=>DB[k].ebit[i]),DB[k].color))},
+    {scales:{x:{grid,ticks},y:{grid,min:10,max:32,ticks:{...ticks,callback:v=>v+'%'}}}});
+
+  const iMap={
+    TCS:`<div class="ins"><b>TCS</b> sustains sector-leading EBIT margin at ${DB['TCS'].ebit[lastIdx()].toFixed(1)}% in ${FY_SHORT[lastIdx()]}. The BSNL cloud megadeal and resilient deal pipeline have driven digital revenues to ${DB['TCS'].cloudP[lastIdx()]}% of total — the highest organic conversion rate in Indian IT.</div>`,
+    Infosys:`<div class="ins g"><b>Infosys</b> Cloud Cobalt drove a 22% revenue jump in FY22. Attrition has normalised from a historic peak of 28.4% (FY22) to ${DB['Infosys'].att[lastIdx()].toFixed(1)}% in ${FY_SHORT[lastIdx()]} — among the fastest recoveries in Indian IT.</div>`,
+    Wipro:`<div class="ins r"><b>Wipro</b> navigating structural headwinds. Revenue at $${(DB['Wipro'].rev[lastIdx()]/1000).toFixed(1)}B in ${FY_SHORT[lastIdx()]}. Revenue per employee of $${DB['Wipro'].rpe[lastIdx()].toFixed(1)}K remains the lowest among peers, pointing to utilisation challenges.</div>`,
+    HCL:`<div class="ins y"><b>HCL Tech</b> delivered a 5-year revenue CAGR of ${DB['HCL'].cagr.rev.toFixed(1)}%. Cloud revenue at ${DB['HCL'].cloudP[lastIdx()]}% of total in ${FY_SHORT[lastIdx()]}, supported by HCL Cloud Smart and a diversified service mix.</div>`,
+    Accenture:`<div class="ins p"><b>Accenture</b> leads at $${(DB['Accenture'].rev[lastIdx()]/1000).toFixed(1)}B in ${FY_SHORT[lastIdx()]}. Cloud First has grown cloud revenues to ${DB['Accenture'].cloudP[lastIdx()]}% of total. Disclosed AI bookings of $3B+ in FY24 signal early monetisation at scale.</div>`
+  };
+  document.getElementById('ins0').innerHTML=cos.map(k=>iMap[k]||'').join('');
+  updateDynamicTitles();
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE 1 — COMPARISON
+// ══════════════════════════════════════════════════════
+function p1(){
+  const cos=getCos(),idxs=getIdxs(),fyl=idxs.map(i=>FY_SHORT[i]);
+
+  mkC('ch1a','bar',{labels:fyl,datasets:cos.map(k=>bds(DB[k].label,idxs.map(i=>DB[k].rev[i]),DB[k].color))},
+    {scales:yax()});
+
+  const sm=[...cos].sort((a,b)=>DB[b].netm[lastIdx()]-DB[a].netm[lastIdx()]);
+  const mx=Math.max(...sm.map(k=>DB[k].netm[lastIdx()]));
+  document.getElementById('hb1').innerHTML=hbar(sm.map(k=>({
+    label:DB[k].label,val:DB[k].netm[lastIdx()].toFixed(1)+'%',color:DB[k].color,pct:(DB[k].netm[lastIdx()]/mx)*100
+  })));
+  const _i1li=lastIdx(),_i1L=FY_SHORT[_i1li];
+  document.getElementById('ins1s').textContent=cos.length>1
+    ?`Net margins at ${_i1L}: TCS leads at ${DB['TCS'].netm[_i1li].toFixed(1)}%, Infosys ${DB['Infosys'].netm[_i1li].toFixed(1)}%. Indian IT majors outperform Accenture (${DB['Accenture'].netm[_i1li].toFixed(1)}%) on margins due to lower offshore cost base.`
+    :`${DB[cos[0]].label} net margin: ${DB[cos[0]].netm[_i1li].toFixed(1)}% at ${_i1L} — ${DB[cos[0]].netm[_i1li]>15?'above':'below'} the 5-company average.`;
+
+  const _sli=lastIdx();
+  // Scorecard: compare period-START vs period-END for meaningful range view
+  // FY25E only -> compare FY24 vs FY25E; otherwise compare first vs last of range
+  const _scoreIdxs=getIdxs();
+  const _spi=_scoreIdxs.length>1?_scoreIdxs[0]:Math.max(0,_sli-1);
+  const _sliL=FY_SHORT[_sli],_spiL=FY_SHORT[_spi];
+  // Show range in header so user sees FY20 vs FY25E vs FY23 vs FY25E clearly
+  const _rangeLabel=_spiL===_sliL?_sliL:_spiL+'→'+_sliL;
+  document.getElementById('sc1h').innerHTML=`<tr>${['Company',_spiL+' Revenue',_sliL+' Revenue','YoY Change','EBIT Margin','Net Margin','Headcount','Attrition','Cloud %','5Y CAGR'].map(h=>`<th>${h}</th>`).join('')}</tr>`;
+  document.getElementById('sc1b').innerHTML=cos.map(k=>{
+    const yoy=((DB[k].rev[_sli]-DB[k].rev[_spi])/DB[k].rev[_spi]*100).toFixed(1);
+    const bc=+yoy>=5?'bp':+yoy>=0?'bw':'bn';
+    return`<tr>
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${DB[k].color};margin-right:6px;vertical-align:middle"></span>${DB[k].label}</td>
+      <td>$${DB[k].rev[_spi].toLocaleString()}M</td><td>$${DB[k].rev[_sli].toLocaleString()}M</td>
+      <td><span class="bpx ${bc}">${+yoy>=0?'+':''}${yoy}%</span></td>
+      <td>${DB[k].ebit[_sli].toFixed(1)}%</td><td>${DB[k].netm[_sli].toFixed(1)}%</td>
+      <td>${(DB[k].hc[_sli]*1000).toLocaleString()}</td>
+      <td>${DB[k].att[_sli].toFixed(1)}%</td><td>${DB[k].cloudP[_sli]}%</td>
+      <td><span class="bpx bne">${DB[k].cagr.rev.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join('');
+
+  mkC('ch1b','bar',{
+    labels:cos.map(k=>DB[k].label),
+    datasets:[
+      {label:'Revenue CAGR',data:cos.map(k=>DB[k].cagr.rev),backgroundColor:cos.map(k=>DB[k].color),borderRadius:4,borderSkipped:false},
+      {label:'Profit CAGR',data:cos.map(k=>DB[k].cagr.profit),backgroundColor:'rgba(100,116,139,0.3)',borderRadius:4,borderSkipped:false}
+    ]
+  },{scales:{x:{grid,ticks},y:{grid,ticks:{...ticks,callback:v=>v+'%'}}}});
+
+  mkC('ch1c','line',{
+    labels:Q_LABELS,
+    datasets:cos.filter(k=>DB[k].qRev).map(k=>lds(DB[k].label,DB[k].qRev,DB[k].color))
+  },{scales:{x:{grid,ticks:{...ticks,maxRotation:38}},y:{grid,ticks:{...ticks,callback:v=>v>=1000?(v/1000).toFixed(1)+'K':v}}}});
+  updateDynamicTitles();
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE 2 — WORKFORCE
+// ══════════════════════════════════════════════════════
+function p2(){
+  const cos=getCos(),idxs=getIdxs(),fyl=idxs.map(i=>FY_SHORT[i]);
+
+  const _wf=calcWorkforce(),_at=calcAttrition(),_rp=calcRevenuePerEmployee();
+  const _fr=calcFreshers(),_hist=calcHistoricalPeak(),_fyL2=FY_SHORT[lastIdx()];
+
+  document.getElementById('kpi2').innerHTML=
+    kcard('ka',getKpiLabel('hc2'),
+      _wf.val+'<sup>K</sup>',
+      Math.abs(_wf.yoy).toFixed(1)+'% '+_wf.prev,_wf.yoy>=0?'dp':'dn')+
+    kcard('kgo',getKpiLabel('att2'),
+      _at.val.toFixed(1)+'<sup>%</sup>',
+      _at.delta>=0?_at.delta.toFixed(1)+'pp better '+_at.prev:Math.abs(_at.delta).toFixed(1)+'pp worse',
+      _at.delta>=0?'dp':'dn')+
+    kcard('kgr','Revenue / employee',
+      '$'+_rp.val.toFixed(1)+'<sup>K</sup>',
+      (_rp.yoy>=0?'+':'')+_rp.yoy.toFixed(1)+'% '+_rp.prev,_rp.yoy>=0?'dp':'dn')+
+    kcard('kr','Campus hiring',
+      _fr.val+'<sup>K</sup>',
+      'Freshers · '+_fr.fy,'dne')+
+    kcard('kp','Historical peak attrition',
+      _hist.peakAtt.toFixed(1)+'<sup>%</sup>',
+      _hist.peakCo+' · '+_hist.peakFy,'dn')+
+    kcard('kor','Sector net additions',
+      sumAt('fresh',lastIdx())+'<sup>K</sup>',
+      'Campus hires · '+_fyL2,'dne');
+
+  mkLeg('leg2a',cos);
+  mkC('ch2a','line',{labels:fyl,datasets:cos.map(k=>lds(DB[k].label,idxs.map(i=>DB[k].hc[i]),DB[k].color))},
+    {scales:yax(v=>v+'K')});
+  mkC('ch2b','line',{labels:fyl,datasets:cos.map(k=>lds(DB[k].label,idxs.map(i=>DB[k].att[i]),DB[k].color))},
+    {scales:{x:{grid,ticks},y:{grid,ticks:{...ticks,callback:v=>v+'%'}}}});
+
+  const sr=[...cos].sort((a,b)=>DB[b].rpe[lastIdx()]-DB[a].rpe[lastIdx()]);
+  const mr=Math.max(...sr.map(k=>DB[k].rpe[lastIdx()]));
+  document.getElementById('hb2').innerHTML=hbar(sr.map(k=>({
+    label:DB[k].label,val:'$'+DB[k].rpe[lastIdx()].toFixed(1)+'K',color:DB[k].color,pct:(DB[k].rpe[lastIdx()]/mr)*100
+  })));
+
+  document.getElementById('ins2').innerHTML=`
+    <div class="ins"><b>FY22 Hiring Surge:</b> TCS added 103,546 employees — the largest net addition in its history — fuelled by post-COVID demand and an expanding deal pipeline. Infosys (54,396) and Wipro (38,706) followed.</div>
+    <div class="ins y"><b>Attrition Crisis FY21–23:</b> India's "Great Resignation" drove sector attrition to 20–28%. Infosys peaked at 28.4% in FY22. US tech firms aggressively poached laterals at 2–3× Indian salary packages.</div>
+    <div class="ins r"><b>FY24 Correction:</b> Infosys (–25,994) and Wipro (–25,504) reduced headcount sharply as North American BFSI discretionary spend contracted. This was demand-driven, not a restructuring event.</div>
+    <div class="ins g"><b>FY25E Normalisation:</b> Attrition reverted to 11–13% across the sector. HCL recovered fastest (23.8% → 12.0%). Revenue per employee improved 4–6% sector-wide as headcounts stabilised.</div>`;
+
+  mkC('ch2c','bar',{labels:fyl,datasets:cos.map(k=>bds(DB[k].label,idxs.map(i=>DB[k].fresh[i]),DB[k].color))},
+    {scales:yax(v=>v+'K')});
+  updateDynamicTitles();
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE 3 — CLOUD & AI
+// ══════════════════════════════════════════════════════
+function p3(){
+  const cos=getCos(),idxs=getIdxs(),fyl=idxs.map(i=>FY_SHORT[i]);
+
+  const _cl=calcCloudRevenue(),_cs=calcCloudShare(),_ai=calcAIRevenue();
+  const li3=lastIdx(),idxs3=getIdxs(),fyL3=FY_SHORT[li3];
+  const cldStart=sumAt('cloud',idxs3[0]),cldEnd=sumAt('cloud',idxs3[idxs3.length-1]);
+  const cldCAGR=idxs3.length>1?(Math.pow(cldEnd/cldStart,1/(idxs3.length-1))-1)*100:0;
+  const aiShare=sumAt('aiRev',li3)/sumAt('rev',li3)*100;
+
+  document.getElementById('kpi3').innerHTML=
+    kcard('ka','Cloud revenue',
+      '$'+(_cl.val/1000).toFixed(1)+'<sup>B</sup>',
+      Math.abs(_cl.yoy).toFixed(1)+'% '+_cl.prev,_cl.yoy>=0?'dp':'dn')+
+    kcard('kgo','Avg cloud share',
+      _cs.val.toFixed(1)+'<sup>%</sup>',
+      (_cs.delta>=0?'+':'')+_cs.delta.toFixed(1)+'pp '+_cs.prev,_cs.delta>=0?'dp':'dn')+
+    kcard('kgr','AI & digital revenue',
+      '$'+(_ai.val/1000).toFixed(1)+'<sup>B</sup>',
+      'Period end · '+fyL3,'dne')+
+    kcard('kr','Cloud CAGR',
+      cldCAGR.toFixed(1)+'<sup>%</sup>',
+      FY_SHORT[idxs3[0]]+'–'+fyL3,'dp')+
+    kcard('kp','AI revenue share',
+      aiShare.toFixed(1)+'<sup>%</sup>',
+      '% of total · '+fyL3,'dne')+
+    kcard('kor','Cloud leaders',
+      cos.filter(k=>DB[k].cloudP[li3]>=28).length+'<sup> cos</sup>',
+      '≥28% cloud share · '+fyL3,'dp');
+
+  mkLeg('leg3a',cos);
+  mkC('ch3a','line',{labels:fyl,datasets:cos.map(k=>lds(
+    k==='Accenture'?'Accenture ÷4':DB[k].label,
+    idxs.map(i=>k==='Accenture'?Math.round(DB[k].cloud[i]/4):DB[k].cloud[i]),
+    DB[k].color,k==='Accenture'?[6,3]:[]
+  ))},{scales:yax(v=>v>=1000?(v/1000).toFixed(1)+'K':v)});
+
+  const sc=[...cos].sort((a,b)=>DB[b].cloudP[lastIdx()]-DB[a].cloudP[lastIdx()]);
+  const mc=Math.max(...sc.map(k=>DB[k].cloudP[lastIdx()]));
+  document.getElementById('hb3').innerHTML=hbar(sc.map(k=>({
+    label:DB[k].label,val:DB[k].cloudP[lastIdx()]+'%',color:DB[k].color,pct:(DB[k].cloudP[lastIdx()]/mc)*100
+  })));
+  const _i3li=lastIdx(),_i3L=FY_SHORT[_i3li];
+  const _topCloud=[...cos].sort((a,b)=>DB[b].cloudP[_i3li]-DB[a].cloudP[_i3li])[0];
+  document.getElementById('ins3s').textContent=`At ${_i3L}: ${DB[_topCloud].label} leads with ${DB[_topCloud].cloudP[_i3li]}% cloud share. Sector average: ${(cos.reduce((a,k)=>a+DB[k].cloudP[_i3li],0)/cos.length).toFixed(1)}%. Geographic mix shows FY2025E data (latest available).`;
+
+  // AI/Digital chart — use selected period indices (min FY2023 = index 3)
+  const _aiIdxs = getIdxs().filter(i=>i>=3); // AI data available from FY2023 (index 3)
+  // Clamp to 4 bars max to avoid overcrowded chart
+  const _aiIdxsShow = _aiIdxs.slice(-4); // AI data only from FY2023
+  const _aiAlphas = [0.35,0.55,0.75,0.9,1.0];
+  mkC('ch3b','bar',{
+    labels:cos.map(k=>DB[k].label),
+    datasets:_aiIdxsShow.map((idx,pos)=>
+      bds(FY_SHORT[idx], cos.map(k=>(DB[k].aiRev[idx]/1000).toFixed(1)),
+        '#38bdf8', _aiAlphas[Math.min(pos,4)])
+    )
+  },{scales:{x:{grid,ticks},y:{grid,ticks:{...ticks,callback:v=>'$'+v+'B'}}}});
+
+  const regs=['na','eu','uk','ind','apac','row'];
+  const rcols=['#38bdf8','#a78bfa','#f59e0b','#10b981','#f43f5e','#fb923c'];
+  const rlabs=['North America','Europe','UK','India','APAC','RoW'];
+  mkC('ch3c','bar',{
+    labels:cos.map(k=>DB[k].label),
+    datasets:regs.map((r,i)=>({
+      label:rlabs[i],data:cos.map(k=>DB[k].geo[r]),
+      backgroundColor:rcols[i]+'cc',borderRadius:i===0?4:0,borderSkipped:false
+    }))
+  },{scales:{x:{grid,ticks,stacked:true},y:{grid,stacked:true,max:100,ticks:{...ticks,callback:v=>v+'%'}}}});
+  updateDynamicTitles();
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE 4 — FORECAST
+// ══════════════════════════════════════════════════════
+function p4(){
+  const cos=getCos(),fcl=['FY24','FY25E','FY26E','FY27E'];
+
+  mkLeg('leg4a',cos);
+  mkC('ch4a','line',{labels:fcl,datasets:cos.map(k=>lds(DB[k].label,DB[k].fcRev,DB[k].color,k==='Accenture'?[6,3]:[]))},
+    {scales:yax(v=>v>=1000?(v/1000).toFixed(0)+'K':v)});
+
+  mkC('ch4b','bar',{
+    labels:cos.map(k=>DB[k].label),
+    datasets:[
+      bds('FY24 (Act.)',cos.map(k=>DB[k].fcHc[0]),'#64748b',0.55),
+      bds('FY25E',cos.map(k=>DB[k].fcHc[1]),'#38bdf8',0.50),
+      bds('FY26E',cos.map(k=>DB[k].fcHc[2]),'#38bdf8',0.75),
+      bds('FY27E',cos.map(k=>DB[k].fcHc[3]),'#38bdf8',1.0)
+    ]
+  },{scales:yax(v=>v+'K')});
+
+  const st=[...cos].sort((a,b)=>DB[b].cloudTgt-DB[a].cloudTgt);
+  const mt=Math.max(...st.map(k=>DB[k].cloudTgt));
+  document.getElementById('hb4').innerHTML=hbar(st.map(k=>({
+    label:DB[k].label,val:DB[k].cloudTgt+'%',color:DB[k].color,pct:(DB[k].cloudTgt/mt)*100
+  })));
+
+  mkC('ch4c','line',{labels:fcl,datasets:cos.map(k=>lds(DB[k].label,DB[k].fcEbit,DB[k].color,k==='Accenture'?[5,3]:[]))},
+    {scales:{x:{grid,ticks},y:{grid,min:10,max:32,ticks:{...ticks,callback:v=>v+'%'}}}});
+
+  document.getElementById('t4').innerHTML=
+    `<thead><tr>${['Company','FY25E Rev','EPS (Dil.)','Rating','Upside'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${cos.map(k=>{
+      const rc=DB[k].rating==='Buy'?'bp':DB[k].rating==='Hold'?'bw':'bn';
+      return`<tr>
+        <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${DB[k].color};margin-right:6px;vertical-align:middle"></span>${DB[k].label}</td>
+        <td>$${(DB[k].rev[5]/1000).toFixed(1)}B</td>
+        <td>$${DB[k].eps25}</td>
+        <td><span class="bpx ${rc}">${DB[k].rating}</span></td>
+        <td style="color:var(--green);font-weight:600">+${DB[k].upside}%</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  const au=(cos.reduce((a,k)=>a+DB[k].upside,0)/cos.length).toFixed(1);
+  const bc=cos.filter(k=>DB[k].rating==='Buy').length;
+  const _buyList=cos.filter(k=>DB[k].rating==='Buy').sort((a,b)=>DB[b].upside-DB[a].upside);
+  const _topUpside=_buyList.slice(0,2).map(k=>`${DB[k].label} (+${DB[k].upside}%)`).join(', ');
+  document.getElementById('ins4s').textContent=
+    `${bc} of ${cos.length} ${cos.length===1?'company':'companies'} rated Buy with average analyst upside of +${au}%. Highest upside: ${_topUpside||'—'}. Cloud and AI revenue acceleration remain the primary re-rating catalysts.`;
+  updateDynamicTitles();
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// CENTRALISED METRIC CALCULATION ENGINE — single source of truth
+// ══════════════════════════════════════════════════════════════════════════
+function lastIdx(){ const i=getIdxs(); return i[i.length-1]; }
+function prevIdx(){ const i=getIdxs(); return i.length>1?i[i.length-2]:i[0]; }
+function sumAt(field,idx){ return getCos().reduce((a,k)=>a+DB[k][field][idx],0); }
+function avgAt(field,idx){ const c=getCos(); return c.reduce((a,k)=>a+DB[k][field][idx],0)/c.length; }
+function prevLabel(){ return 'vs '+FY_SHORT[prevIdx()]; }
+
+function calcRevenue(){
+  const li=lastIdx(),pi=prevIdx(),cur=sumAt('rev',li),prv=sumAt('rev',pi);
+  return{val:cur,yoy:prv?(cur-prv)/prv*100:0,prev:prevLabel()};
+}
+function calcProfit(){
+  const li=lastIdx(),pi=prevIdx(),cur=sumAt('profit',li),prv=sumAt('profit',pi);
+  return{val:cur,yoy:prv?(cur-prv)/prv*100:0,prev:prevLabel()};
+}
+function calcWorkforce(){
+  // hc values are already in thousands (448 = 448K) — do NOT divide by 1000
+  const li=lastIdx(),pi=prevIdx(),cur=sumAt('hc',li),prv=sumAt('hc',pi);
+  return{val:cur,yoy:prv?(cur-prv)/prv*100:0,prev:prevLabel()};
+}
+function calcAttrition(){
+  const li=lastIdx(),pi=prevIdx();
+  const cur=avgAt('att',li),prv=avgAt('att',pi);
+  return{val:cur,delta:prv-cur,prev:prevLabel()};
+}
+function calcEbitMargin(){
+  const li=lastIdx(),pi=prevIdx();
+  const cur=avgAt('ebit',li),prv=avgAt('ebit',pi);
+  return{val:cur,delta:cur-prv,prev:prevLabel()};
+}
+function calcCloudShare(){
+  const li=lastIdx(),pi=prevIdx();
+  const cur=avgAt('cloudP',li),prv=avgAt('cloudP',pi);
+  return{val:cur,delta:cur-prv,prev:prevLabel()};
+}
+function calcRevenuePerEmployee(){
+  const li=lastIdx(),pi=prevIdx();
+  const cur=avgAt('rpe',li),prv=avgAt('rpe',pi);
+  return{val:cur,yoy:prv?(cur-prv)/prv*100:0,prev:prevLabel()};
+}
+function calcCloudRevenue(){
+  const li=lastIdx(),pi=prevIdx(),cur=sumAt('cloud',li),prv=sumAt('cloud',pi);
+  return{val:cur,yoy:prv?(cur-prv)/prv*100:0,prev:prevLabel()};
+}
+function calcAIRevenue(){
+  return{val:sumAt('aiRev',lastIdx()),prev:FY_SHORT[lastIdx()]};
+}
+function calcFreshers(){
+  return{val:sumAt('fresh',lastIdx()),fy:FY_SHORT[lastIdx()]};
+}
+function calcHistoricalPeak(){
+  const pa=Math.max(...CO_KEYS.flatMap(k=>DB[k].att));
+  const paCo=CO_KEYS.find(k=>DB[k].att.includes(pa));
+  const paFy=FY_SHORT[DB[paCo].att.indexOf(pa)];
+  return{peakAtt:pa,peakCo:paCo,peakFy:paFy};
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════════════════
+function renderAll(){p0();p1();p2();p3();p4()}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function showPage(idx,btn){
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.ni').forEach((n,i)=>n.classList.toggle('active',i===idx));
+}
+
+// ══════════════════════════════════════════════════════
+// FILTERS
+// ══════════════════════════════════════════════════════
+function setFilter(type,val,el){
+  if(type==='co'){
+    state.co=val;
+    document.querySelectorAll('#cchips .chip').forEach(c=>c.classList.toggle('ca',c.dataset.co===val));
+  }else{
+    state.fy=val;
+    document.querySelectorAll('#fychips .chip').forEach(c=>c.classList.toggle('ca',c.dataset.fy===val));
+  }
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// DYNAMIC TITLE / STATE ENGINE
+// ══════════════════════════════════════════════════════
+
+// Returns true when a single company is selected
+function isSingle(){ return state.co !== 'all'; }
+
+// Canonical company name for display
+function coName(){
+  if(!isSingle()) return null;
+  return DB[state.co].label; // e.g. "HCL Tech", "Accenture"
+}
+
+// Helper: get active FY range label
+function fyRangeLabel(){
+  if(state.fy==='latest') return 'FY2025E';
+  if(state.fy==='3y')     return 'FY2023–FY2025E';
+  return 'FY2020–FY2025E';
+}
+
+// KPI label factory — context-aware
+function getKpiLabel(metric){
+  const n = coName();
+  const labels = {
+    rev:    isSingle() ? `${n} Revenue FY25E`      : 'Total Revenue FY25E',
+    profit: isSingle() ? `${n} Net Profit FY25E`   : 'Combined Net Profit',
+    hc:     isSingle() ? `${n} Workforce FY25E`    : 'Total Workforce FY25E',
+    att:    isSingle() ? `${n} Attrition FY25E`    : 'Avg Attrition Rate',
+    ebit:   isSingle() ? `${n} EBIT Margin FY25E`  : 'Avg EBIT Margin',
+    cloud:  isSingle() ? `${n} Cloud Share FY25E`  : 'Avg Cloud Share',
+    // Page 2 repeats
+    hc2:    isSingle() ? `${n} Workforce FY25E`    : 'Total Workforce FY25E',
+    att2:   isSingle() ? `${n} Attrition FY25E`    : 'Avg Attrition FY25E',
+    rpe:    isSingle() ? `${n} Rev / Employee`     : 'Avg Rev / Employee',
+  };
+  return labels[metric] || metric;
+}
+
+// Update every dynamic text node in the DOM
+function updateDynamicTitles(){
+  const single  = isSingle();
+  const n       = coName();
+  const fyr     = fyRangeLabel();
+  const coCount = getCos().length;
+  const set = (id,txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
+
+  // ── Context badge ─────────────────────────────────────
+  const ctxBadge = document.getElementById('ctx-badge');
+  if(ctxBadge){
+    if(single){
+      ctxBadge.textContent       = `Viewing: ${n}`;
+      ctxBadge.style.background  = DB[state.co].color+'18';
+      ctxBadge.style.color       = DB[state.co].color;
+      ctxBadge.style.border      = `1px solid ${DB[state.co].color}40`;
+    } else {
+      ctxBadge.textContent       = 'Comparison Mode: All Companies';
+      ctxBadge.style.background  = 'rgba(56,189,248,.1)';
+      ctxBadge.style.color       = '#38bdf8';
+      ctxBadge.style.border      = '1px solid rgba(56,189,248,.25)';
+    }
+  }
+
+  // ── ph-tag count ──────────────────────────────────────
+  set('ph-tag-count', single ? `${n} · ${fyr}` : `${coCount} Companies · 6 Fiscal Years`);
+
+  // ── Footer ────────────────────────────────────────────
+  set('ft-cos', single ? n : '5 Companies');
+
+
+  // ── Update ALL dynamic period subtitle spans ──────────────────────────
+  const dynPeriodIds = [
+    'psp-pt-p0-rev','psp-pt-p0-ebit','psp-pt-p1-rev','psp-pt-p1-score',
+    'psp-hc','psp-pt-p2-att','psp-fresh','psp-cloud'
+  ];
+  dynPeriodIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = fyr;
+  });
+
+
+  // ── Page 0 ───────────────────────────────────────────
+  set('pt-p0-rev',   single ? `Revenue trend — ${n}` : 'Revenue trend');
+  set('pt-p0-donut', single ? `${n} — Revenue breakdown` : 'Revenue distribution');
+  set('pb-p0-donut', single ? FY_SHORT[lastIdx()] : FY_SHORT[lastIdx()]+' share');
+  // Update donut/bar panel subtitle to reflect selected period
+  const _psp0d = document.getElementById('psp-pt-p0-donut');
+  if(_psp0d) _psp0d.textContent = FY_SHORT[lastIdx()];
+  set('pt-p0-ebit',  single ? `${n} — EBIT margin` : 'EBIT margin');
+  set('pb-p0-ins',   single ? `${n} Analysis`                         : 'Key Observations');
+
+  // ── Page 1 ───────────────────────────────────────────
+  set('ph-p1-title', single ? `${n} — Detailed Performance View`      : 'Company Performance Comparison');
+  set('ph-p1-sub',   single
+    ? `Revenue, margins, growth and efficiency metrics for ${n} across ${fyr}`
+    : 'Revenue, profitability, growth and structural efficiency metrics benchmarked across all five peers');
+  set('pt-p1-rev',   single ? `${n} — Annual revenue` : 'Annual revenue');
+  set('pt-p1-mgn',   single ? `${n} — Net profit margin` : 'Net profit margin');
+  set('pb-p1-mgn',   single ? `${n} Margin Profile`                   : 'Ranked High → Low');
+  set('pt-p1-score', single ? `${n} — Key Metrics Snapshot`           : 'Performance scorecard');
+  set('pb-p1-score', single ? 'Single Company'                        : '5 Companies · 10 Metrics');
+  set('pt-p1-cagr',  single ? `${n} — 5-year CAGR` : '5-year revenue & profit CAGR');
+
+  // ── Page 2 ───────────────────────────────────────────
+  set('pt-p2-att',   single ? `${n} — Attrition rate` : 'Attrition rate');
+}
+
+// ══════════════════════════════════════════════════════
+// BOOT
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+.AppleDouble
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Excel temp files
+~$*.xlsx
+
+# Power BI temp
+*.pbix.bak
+
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/

@@ -1,0 +1,268 @@
+// ============================================================
+// ALL DAX MEASURES — IT Services Intelligence Dashboard
+// Copy each measure into Power BI Desktop:
+// Right-click _Measures table → New Measure → paste formula
+// ============================================================
+
+
+// ─── REVENUE MEASURES ────────────────────────────────────────
+
+Total Revenue =
+SUM(Annual_Revenue[Revenue_USD_M])
+
+
+Selected Revenue =
+CALCULATE(
+    [Total Revenue],
+    ALLSELECTED(Annual_Revenue[Company])
+)
+
+
+YoY Revenue % =
+VAR CurrYear =
+    CALCULATE(
+        [Total Revenue],
+        Annual_Revenue[FY] = MAX(Annual_Revenue[FY])
+    )
+VAR PrevYear =
+    CALCULATE(
+        [Total Revenue],
+        Annual_Revenue[FY] = MAX(Annual_Revenue[FY]) - 1
+    )
+RETURN
+    DIVIDE(CurrYear - PrevYear, PrevYear, BLANK())
+
+
+Revenue CAGR 5Y =
+VAR EndVal =
+    CALCULATE([Total Revenue], Annual_Revenue[FY] = "FY2025E")
+VAR StartVal =
+    CALCULATE([Total Revenue], Annual_Revenue[FY] = "FY2020")
+RETURN
+    POWER(DIVIDE(EndVal, StartVal, BLANK()), 1 / 5) - 1
+
+
+Revenue Contribution % =
+DIVIDE(
+    [Total Revenue],
+    CALCULATE([Total Revenue], ALL(Annual_Revenue[Company])),
+    0
+)
+
+
+QoQ Revenue Growth % =
+VAR CurrQ = SUM(Quarterly_Revenue[Revenue_USD_M])
+VAR PrevQ =
+    CALCULATE(
+        SUM(Quarterly_Revenue[Revenue_USD_M]),
+        FILTER(
+            ALL(Quarterly_Revenue),
+            Quarterly_Revenue[Company] = EARLIER(Quarterly_Revenue[Company]) &&
+            Quarterly_Revenue[Sort_Order] = EARLIER(Quarterly_Revenue[Sort_Order]) - 1
+        )
+    )
+RETURN
+    DIVIDE(CurrQ - PrevQ, PrevQ, BLANK())
+
+
+// ─── PROFITABILITY MEASURES ───────────────────────────────────
+
+Total Net Profit =
+SUM(Profitability[Net_Profit_M])
+
+
+Total EBIT =
+SUM(Profitability[EBIT_M])
+
+
+Net Margin % =
+DIVIDE(
+    SUM(Profitability[Net_Profit_M]),
+    SUM(Profitability[Revenue_USD_M]),
+    0
+)
+
+
+EBIT Margin % =
+DIVIDE(
+    SUM(Profitability[EBIT_M]),
+    SUM(Profitability[Revenue_USD_M]),
+    0
+)
+
+
+Gross Margin % =
+DIVIDE(
+    SUM(Profitability[Gross_Profit_M]),
+    SUM(Profitability[Revenue_USD_M]),
+    0
+)
+
+
+Operating Leverage =
+VAR RevGrowth = [YoY Revenue %]
+VAR EBITCurr =
+    CALCULATE([Total EBIT], Annual_Revenue[FY] = MAX(Annual_Revenue[FY]))
+VAR EBITPrev =
+    CALCULATE([Total EBIT], Annual_Revenue[FY] = MAX(Annual_Revenue[FY]) - 1)
+VAR EBITGrowth =
+    DIVIDE(EBITCurr - EBITPrev, EBITPrev, BLANK())
+RETURN
+    DIVIDE(EBITGrowth, RevGrowth, BLANK())
+
+
+YoY Net Profit % =
+VAR CurrYr =
+    CALCULATE([Total Net Profit], Annual_Revenue[FY] = MAX(Annual_Revenue[FY]))
+VAR PrevYr =
+    CALCULATE([Total Net Profit], Annual_Revenue[FY] = MAX(Annual_Revenue[FY]) - 1)
+RETURN
+    DIVIDE(CurrYr - PrevYr, PrevYr, BLANK())
+
+
+// ─── WORKFORCE MEASURES ──────────────────────────────────────
+
+Total Employees =
+SUM(Workforce_Attrition[Total_Employees])
+
+
+Headcount Change YoY =
+VAR Curr =
+    CALCULATE(
+        SUM(Workforce_Attrition[Total_Employees]),
+        Workforce_Attrition[FY] = MAX(Workforce_Attrition[FY])
+    )
+VAR Prev =
+    CALCULATE(
+        SUM(Workforce_Attrition[Total_Employees]),
+        Workforce_Attrition[FY] = MAX(Workforce_Attrition[FY]) - 1
+    )
+RETURN Curr - Prev
+
+
+Attrition Rate % =
+AVERAGE(Workforce_Attrition[Attrition_%])
+
+
+Latest Attrition % =
+CALCULATE(
+    AVERAGE(Workforce_Attrition[Attrition_%]),
+    Workforce_Attrition[FY] = "FY2025E"
+)
+
+
+Revenue Per Employee $K =
+DIVIDE(
+    [Total Revenue] * 1000,
+    [Total Employees],
+    BLANK()
+)
+
+
+Net Additions =
+SUM(Workforce_Attrition[Net_Additions])
+
+
+Freshers Hired Total =
+SUM(Workforce_Attrition[Freshers_Hired])
+
+
+// ─── CLOUD & DIGITAL MEASURES ────────────────────────────────
+
+Total Cloud Revenue =
+SUM(Cloud_AI_Digital[Cloud_Revenue_M])
+
+
+Cloud Revenue Share % =
+DIVIDE(
+    SUM(Cloud_AI_Digital[Cloud_Revenue_M]),
+    SUM(Cloud_AI_Digital[Total_Revenue_M]),
+    0
+)
+
+
+AI Digital Revenue Share % =
+DIVIDE(
+    SUM(Cloud_AI_Digital[AI_Digital_Revenue_M]),
+    SUM(Cloud_AI_Digital[Total_Revenue_M]),
+    0
+)
+
+
+Cloud Revenue YoY % =
+VAR Curr =
+    CALCULATE(
+        SUM(Cloud_AI_Digital[Cloud_Revenue_M]),
+        Cloud_AI_Digital[FY] = MAX(Cloud_AI_Digital[FY])
+    )
+VAR Prev =
+    CALCULATE(
+        SUM(Cloud_AI_Digital[Cloud_Revenue_M]),
+        Cloud_AI_Digital[FY] = MAX(Cloud_AI_Digital[FY]) - 1
+    )
+RETURN
+    DIVIDE(Curr - Prev, Prev, BLANK())
+
+
+Cloud CAGR 5Y =
+VAR EndVal =
+    CALCULATE([Total Cloud Revenue], Cloud_AI_Digital[FY] = "FY2025E")
+VAR StartVal =
+    CALCULATE([Total Cloud Revenue], Cloud_AI_Digital[FY] = "FY2020")
+RETURN
+    POWER(DIVIDE(EndVal, StartVal, BLANK()), 1 / 5) - 1
+
+
+// ─── DYNAMIC TITLE MEASURES ───────────────────────────────────
+
+Selected Company Title =
+VAR SelectedCompany =
+    SELECTEDVALUE(Dim_Company[Company], "All Companies")
+RETURN
+    SelectedCompany & " — Performance Dashboard"
+
+
+Selected FY Title =
+VAR SelectedFY =
+    SELECTEDVALUE(Dim_FY[FY_Label], "All Years")
+RETURN
+    "Fiscal Year: " & SelectedFY
+
+
+KPI Subtitle =
+"Source: Annual Reports & Earnings Disclosures | " &
+FORMAT(TODAY(), "MMM YYYY")
+
+
+// ─── GEOGRAPHIC MEASURES ─────────────────────────────────────
+
+North America Revenue % =
+AVERAGE(Geographic_Revenue[North_America_%])
+
+
+Europe Revenue % =
+AVERAGE(Geographic_Revenue[Europe_%])
+
+
+APAC Revenue % =
+AVERAGE(Geographic_Revenue[APAC_%])
+
+
+// ─── FORECASTING MEASURES ────────────────────────────────────
+
+Avg 3Y Revenue Growth =
+AVERAGEX(
+    FILTER(
+        ALL(Annual_Revenue),
+        Annual_Revenue[FY] IN {"FY2022", "FY2023", "FY2024"}
+    ),
+    [YoY Revenue %]
+)
+
+
+FY26E Revenue Forecast =
+[Total Revenue] * (1 + [Avg 3Y Revenue Growth])
+
+
+FY27E Revenue Forecast =
+[FY26E Revenue Forecast] * (1 + [Avg 3Y Revenue Growth])
