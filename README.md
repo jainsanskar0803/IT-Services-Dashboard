@@ -105,9 +105,9 @@ Runs directly in any modern browser.
 ```bash
 git init
 git add .
-git commit -m "Initial Commit"
+git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/IT-Services-Dashboard.git
+git remote add origin https://github.com/YOUR_USERNAME/IT-Services-Dashboard.git
 git push -u origin main
 ```
 
