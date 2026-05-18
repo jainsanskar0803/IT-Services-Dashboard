@@ -74,7 +74,7 @@ Inspired by:
 # Live Dashboard
 
 ```text
-https://jainsanskar0803.github.io/IT-Services-Dashboard/
+https://github.com/jainsanskar0803/IT-Services-Dashboard.git
 ```
 
 ---
