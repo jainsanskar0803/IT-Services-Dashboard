@@ -26,3 +26,7 @@ venv/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# IntelliJ / PyCharm
+.idea/
+*.iml
